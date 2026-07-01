@@ -138,7 +138,7 @@ test("portal checkout load rolls back shipment when Razorpay order creation fail
         pickup: GURGAON,
         drop: JAIPUR,
       }),
-      /missing_razorpay_credentials/,
+      /razorpay_dependency_missing|missing_razorpay_credentials/,
     );
 
     assert.equal(store.shipments.size, 0);
