@@ -87,6 +87,44 @@ test("integration load create is idempotent by externalLoadId", async () => {
   assert.equal(second.shipment.id, first.shipment.id);
 });
 
+test("integration load idempotency key cannot alias a different external load", async () => {
+  process.env.AUTH_SECRET = "test-secret-min-16-chars!!";
+  const store = createStore();
+  seedOpenTrip(store);
+  const admin = registerCustomerOrgAdmin(store, {
+    fullName: "ERP Idempotency Admin",
+    phone: "9111001193",
+    orgDisplayName: "ERP Idempotency Co",
+  });
+  const { token } = createIntegrationApiKey(store, admin.org.id);
+  updateIntegrationConnection(store, admin.org.id, { paymentPolicy: "erp_preauthorized" });
+
+  const ctx = resolveIntegrationAuth(store, { bearerToken: token });
+  const baseParams = {
+    weightKg: 120,
+    pickupAddress: "Warehouse A, Gurugram",
+    dropAddress: "Plant B, Jaipur",
+    pickup: GURGAON,
+    drop: JAIPUR,
+    idempotencyKey: "erp-retry-key-1",
+  };
+
+  const first = await createIntegrationLoad(store, ctx, {
+    ...baseParams,
+    externalLoadId: "ERP-IDEMPOTENT-001",
+  });
+  assert.equal(first.created, true);
+
+  await assert.rejects(
+    createIntegrationLoad(store, ctx, {
+      ...baseParams,
+      externalLoadId: "ERP-IDEMPOTENT-002",
+    }),
+    /idempotency_key_conflict/,
+  );
+  assert.equal(store.shipments.size, 1);
+});
+
 test("revokeIntegrationApiKey accepts public keyId from the customer portal", () => {
   process.env.AUTH_SECRET = "test-secret-min-16-chars!!";
   const store = createStore();
@@ -103,6 +141,49 @@ test("revokeIntegrationApiKey accepts public keyId from the customer portal", ()
   assert.throws(
     () => resolveIntegrationAuth(store, { bearerToken: token }),
     /integration_unauthorized/,
+  );
+});
+
+test("integration events pagination returns the next events after a cursor", () => {
+  process.env.AUTH_SECRET = "test-secret-min-16-chars!!";
+  const store = createStore();
+  const { trip } = seedOpenTrip(store);
+  const admin = registerCustomerOrgAdmin(store, {
+    fullName: "ERP Events Admin",
+    phone: "9111001192",
+    orgDisplayName: "ERP Events Co",
+  });
+  const conn = updateIntegrationConnection(store, admin.org.id, { paymentPolicy: "erp_preauthorized" });
+
+  for (let i = 0; i < 3; i += 1) {
+    bookShipment(store, {
+      anchorTripId: trip.id,
+      customerOrgName: admin.org.displayName,
+      customerOrg: { id: admin.org.id, displayName: admin.org.displayName },
+      weightKg: 50,
+      pickupAddress: "Gurugram",
+      dropAddress: "Jaipur",
+      pickup: GURGAON,
+      drop: JAIPUR,
+      externalLoadId: `ERP-EVENTS-${i}`,
+      integrationConnectionId: conn.id,
+    });
+  }
+
+  const ordered = [...store.integrationEvents.values()];
+  ordered.forEach((event, idx) => {
+    event.createdAtUtcMs = idx + 1;
+    store.integrationEvents.set(event.id, event);
+  });
+
+  const page = listIntegrationEvents(store, admin.org.id, {
+    sinceEventId: ordered[1]!.id,
+    limit: 2,
+  });
+
+  assert.deepEqual(
+    page.map((event) => event.id),
+    ordered.slice(2, 4).map((event) => event.id),
   );
 });
 
