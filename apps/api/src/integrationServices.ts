@@ -136,7 +136,7 @@ export function createIntegrationApiKey(
 export function revokeIntegrationApiKey(store: Store, orgId: string, keyIdOrRecordId: string): void {
   const lookup = keyIdOrRecordId.trim();
   const key = store.integrationApiKeys.get(lookup)
-    ?? [...store.integrationApiKeys.values()].find((k) => k.keyId === lookup);
+    ?? [...store.integrationApiKeys.values()].find((k) => k.orgId === orgId && k.keyId === lookup);
   if (!key || key.orgId !== orgId) throw new Error("integration_key_not_found");
   key.status = "REVOKED";
   store.integrationApiKeys.set(key.id, key);
@@ -250,6 +250,7 @@ export async function createIntegrationLoad(
   if (params.idempotencyKey?.trim()) {
     const existing = findShipmentByIdempotencyKey(store, ctx.orgId, params.idempotencyKey.trim());
     if (existing) {
+      if (existing.externalLoadId !== externalLoadId) throw new Error("idempotency_key_conflict");
       return { shipment: existing, response: integrationLoadResponse(store, existing, conn), created: false };
     }
   }
@@ -382,7 +383,7 @@ export function listIntegrationEvents(
     events = idx >= 0 ? events.slice(idx + 1) : events;
   }
   const limit = Math.min(params.limit ?? 100, 500);
-  return events.slice(-limit);
+  return events.slice(0, limit);
 }
 
 export function listWebhookDeliveries(
