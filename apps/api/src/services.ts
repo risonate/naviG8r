@@ -180,6 +180,11 @@ function assertCarrierCanInviteStaff(store: Store, userId: string, orgId: string
   }
 }
 
+/** Payout bank / KYC changes: owners and dispatchers only (not DRIVER). */
+function assertCarrierCanManagePayouts(store: Store, userId: string, orgId: string): void {
+  assertCarrierCanInviteStaff(store, userId, orgId);
+}
+
 /** First vehicle provisioned for a carrier org (owner's solo register vehicle). */
 function primaryOrgVehicle(store: Store, orgId: string): Vehicle | null {
   const vehicles = [...store.vehicles.values()].filter((v) => v.orgId === orgId);
@@ -717,7 +722,7 @@ export async function pilotSubmitPayoutSetup(
   userId: string,
   params: { orgId: string; accountHolderName: string; ifsc: string; accountNumber?: string },
 ): Promise<{ org: Organization; message: string }> {
-  assertPilotDriverCanManageOrg(store, userId, params.orgId);
+  assertCarrierCanManagePayouts(store, userId, params.orgId);
   const org = getOrgOrThrow(store, params.orgId);
   const accountHolderName = String(params.accountHolderName ?? "").trim();
   const ifsc = String(params.ifsc ?? "").trim();
@@ -1354,6 +1359,13 @@ export function submitDriverPod(
   if (s.status !== "BOOKED") {
     throw new ApiError("shipment_not_deliverable", { status: s.status });
   }
+  const trip = store.anchorTrips.get(s.anchorTripId);
+  if (!trip || trip.status !== "IN_PROGRESS") {
+    throw new ApiError("trip_not_started_for_pod", {
+      detail: "Start the load before confirming delivery (POD).",
+      status: trip?.status ?? null,
+    });
+  }
   const pay = store.payments.get(s.paymentId);
   if (!pay) throw new Error("payment_not_found");
   const payOk =
@@ -1596,6 +1608,10 @@ export function inviteCarrierDriver(
   return { user, membership, vehicle, driverProfile };
 }
 
+function ledgerLineForShipment(store: Store, shipmentId: string): LedgerLine | undefined {
+  return [...store.ledgerLines.values()].find((l) => l.shipmentId === shipmentId);
+}
+
 /** Ops releases payment after driver POD; captures Razorpay then marks DELIVERED. */
 export async function releasePaymentAndDeliver(
   store: Store,
@@ -1603,17 +1619,47 @@ export async function releasePaymentAndDeliver(
 ): Promise<{ shipment: Shipment; ledgerLine: LedgerLine }> {
   const s = store.shipments.get(params.shipmentId);
   if (!s) throw new Error("shipment_not_found");
+  if (s.status === "DELIVERED") {
+    const existing = ledgerLineForShipment(store, s.id);
+    if (existing) return { shipment: s, ledgerLine: existing };
+  }
   if (s.status !== "PENDING_RELEASE") {
     throw new ApiError("shipment_not_pending_release", { status: s.status });
   }
   await ensureRazorpayCapturedBeforePod(store, params.shipmentId);
-  const pay = store.payments.get(s.paymentId);
+  // Re-read after async capture: concurrent release or crash-retry may have finished.
+  const current = store.shipments.get(params.shipmentId);
+  if (!current) throw new Error("shipment_not_found");
+  if (current.status === "DELIVERED") {
+    const existing = ledgerLineForShipment(store, current.id);
+    if (existing) return { shipment: current, ledgerLine: existing };
+  }
+  if (current.status !== "PENDING_RELEASE") {
+    throw new ApiError("shipment_not_pending_release", { status: current.status });
+  }
+  const pay = store.payments.get(current.paymentId);
   if (!pay) throw new Error("payment_not_found");
   if (pay.provider !== "MOCK" && pay.status !== "CAPTURED") {
     throw new Error("payment_not_captured");
   }
-  const podAtUtcMs = params.podAtUtcMs ?? s.podAtUtcMs ?? nowUtcMs();
-  return finalizeDeliveredShipment(store, s, podAtUtcMs);
+  const existingLine = ledgerLineForShipment(store, current.id);
+  if (existingLine) {
+    // Ledger already accrued (prior partial finalize); ensure shipment is DELIVERED.
+    const podAtUtcMs = params.podAtUtcMs ?? current.podAtUtcMs ?? existingLine.podAtUtcMs;
+    const now = nowUtcMs();
+    const delivered: Shipment = {
+      ...current,
+      status: "DELIVERED",
+      podAtUtcMs,
+      firstPayoutEligibleAtUtcMs: existingLine.firstPayoutEligibleAtUtcMs,
+      payoutBatchCutoffUtcMs: existingLine.payoutBatchCutoffUtcMs,
+      updatedAtUtcMs: now,
+    };
+    store.shipments.set(delivered.id, delivered);
+    return { shipment: delivered, ledgerLine: existingLine };
+  }
+  const podAtUtcMs = params.podAtUtcMs ?? current.podAtUtcMs ?? nowUtcMs();
+  return finalizeDeliveredShipment(store, current, podAtUtcMs);
 }
 
 export function opsListPendingRelease(store: Store): Shipment[] {
@@ -1748,6 +1794,9 @@ export async function ensureRazorpayCapturedBeforePod(store: Store, shipmentId: 
   if (!pay) throw new Error("payment_not_found");
   if (pay.provider !== "RAZORPAY") return;
   if (pay.status === "CAPTURED") return;
+  if (pay.status === "REFUNDED") {
+    throw new ApiError("payment_not_capturable", { status: pay.status });
+  }
   if (pay.status !== "AUTHORIZED") {
     throw new ApiError("checkout_not_completed_for_pod", {
       detail: "Complete Razorpay checkout (authorized) before POD, or wait for webhook.",
@@ -1756,6 +1805,7 @@ export async function ensureRazorpayCapturedBeforePod(store: Store, shipmentId: 
   }
   const pid = pay.razorpayPaymentId;
   if (!pid) throw new ApiError("payment_id_missing", {});
+  // captureRazorpayPayment is idempotent if the gateway already captured (crash/retry).
   await captureRazorpayPayment(pid, pay.amountPaise);
   store.payments.set(pay.id, { ...pay, status: "CAPTURED", updatedAtUtcMs: nowUtcMs() });
 }
@@ -1763,7 +1813,11 @@ export async function ensureRazorpayCapturedBeforePod(store: Store, shipmentId: 
 export async function failCarrierAndRefund(store: Store, params: { shipmentId: string }): Promise<Shipment> {
   const s = store.shipments.get(params.shipmentId);
   if (!s) throw new Error("shipment_not_found");
-  if (s.status !== "BOOKED" && s.status !== "PENDING_CARRIER_ACCEPT") {
+  if (
+    s.status !== "BOOKED" &&
+    s.status !== "PENDING_CARRIER_ACCEPT" &&
+    s.status !== "PENDING_RELEASE"
+  ) {
     throw new Error("shipment_not_refundable");
   }
 
@@ -1776,14 +1830,15 @@ export async function failCarrierAndRefund(store: Store, params: { shipmentId: s
         throw new ApiError("razorpay_payment_id_missing", { status: pay.status });
       }
       try {
+        // razorpayRefundPayment is idempotent if the gateway already refunded.
         await razorpayRefundPayment(pay.razorpayPaymentId, pay.amountPaise);
       } catch (e: any) {
         throw new ApiError("razorpay_refund_failed", { detail: String(e?.message ?? e) });
       }
-    } else if (pay.status !== "CREATED" && pay.status !== "FAILED") {
+    } else if (pay.status !== "CREATED" && pay.status !== "FAILED" && pay.status !== "REFUNDED") {
       throw new ApiError("payment_not_refundable", { status: pay.status });
     }
-  } else if (pay.status !== "CAPTURED") {
+  } else if (pay.status !== "CAPTURED" && pay.status !== "REFUNDED") {
     throw new Error("payment_not_captured");
   }
 
