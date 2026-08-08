@@ -312,10 +312,11 @@ function assertCustomerCanInviteMember(store: Store, userId: string, orgId: stri
 }
 
 export function shipmentBelongsToCustomerOrg(shipment: Shipment, org: Organization): boolean {
-  if (shipment.customerOrgId != null && shipment.customerOrgId !== "") {
-    return shipment.customerOrgId === org.id;
-  }
-  return shipment.customerOrgName === org.displayName;
+  // Match by stable org id only. Display-name matching is not a security boundary:
+  // anyone can register a CUSTOMER org with a colliding name and then list/refund
+  // anonymous bookings that used that string as customerOrgName.
+  if (shipment.customerOrgId == null || shipment.customerOrgId === "") return false;
+  return shipment.customerOrgId === org.id;
 }
 
 const PLATFORM_OPS_ORG_ID = "org_platform_ops";
@@ -1603,9 +1604,15 @@ export function inviteCarrierDriver(
   }
 
   store.memberships.set(membershipKey(user.id, params.orgId), membership);
-  store.driverProfiles.set(user.id, driverProfile);
+  // driverProfiles is keyed by userId (singleton). Never overwrite an existing
+  // profile for another carrier — that would silently retarget a solo operator's
+  // org/vehicle when they are invited into a second fleet.
+  const existingProfile = store.driverProfiles.get(user.id);
+  if (!existingProfile) {
+    store.driverProfiles.set(user.id, driverProfile);
+  }
 
-  return { user, membership, vehicle, driverProfile };
+  return { user, membership, vehicle, driverProfile: existingProfile ?? driverProfile };
 }
 
 function ledgerLineForShipment(store: Store, shipmentId: string): LedgerLine | undefined {

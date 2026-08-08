@@ -9,9 +9,11 @@ import {
   inviteCarrierDriver,
   pilotSubmitPayoutSetup,
   publishAnchorTripAsPilotDriver,
+  registerCustomerOrgAdmin,
   registerCustomerUser,
   registerSoloOwnerOperatorDriver,
   releasePaymentAndDeliver,
+  shipmentVisibleToCustomerUser,
   startAnchorTripAsPilot,
   submitDriverPod,
 } from "./services.ts";
@@ -148,6 +150,77 @@ test("releasePaymentAndDeliver is idempotent when shipment already DELIVERED", a
     [...store.ledgerLines.values()].filter((l) => l.shipmentId === shipment.id).length,
     1,
   );
+});
+
+test("fleet invite does not overwrite existing driverProfile for another org", () => {
+  const store = createStore();
+  const solo = registerSoloOwnerOperatorDriver(store, {
+    fullName: "Solo",
+    phone: "9000000701",
+    orgDisplayName: "Solo Transport",
+    vehicleRegistrationNumber: "HR01HH0701",
+    vehicleClass: "MEDIUM",
+    vehicleCapacityKg: 5000,
+  });
+  const fleet = registerSoloOwnerOperatorDriver(store, {
+    fullName: "Fleet Owner",
+    phone: "9000000702",
+    orgDisplayName: "Big Fleet",
+    vehicleRegistrationNumber: "HR01II0702",
+    vehicleClass: "LARGE",
+    vehicleCapacityKg: 10000,
+  });
+  const before = store.driverProfiles.get(solo.user.id)!;
+  inviteCarrierDriver(store, fleet.user.id, {
+    orgId: fleet.org.id,
+    phone: solo.user.phone,
+    role: "DRIVER",
+    vehicleRegistrationNumber: "HR01JJ0703",
+    vehicleClass: "MEDIUM",
+    vehicleCapacityKg: 2000,
+  });
+  const after = store.driverProfiles.get(solo.user.id)!;
+  assert.equal(after.orgId, before.orgId);
+  assert.equal(after.primaryVehicleId, before.primaryVehicleId);
+  assert.ok(store.memberships.get(`${solo.user.id}:${fleet.org.id}`));
+});
+
+test("org displayName alone does not grant shipment visibility or refund rights", () => {
+  const store = createStore();
+  const owner = registerSoloOwnerOperatorDriver(store, {
+    fullName: "Owner",
+    phone: "9000000601",
+    orgDisplayName: "Carrier",
+    vehicleRegistrationNumber: "HR01GG0601",
+    vehicleClass: "MEDIUM",
+    vehicleCapacityKg: 5000,
+  });
+  const trip = publishAnchorTripAsPilotDriver(store, {
+    userId: owner.user.id,
+    orgId: owner.org.id,
+    originCity: "Gurugram",
+    destCity: "Jaipur",
+    windowStart: "2026-04-24T00:00:00+05:30",
+    windowEnd: "2026-04-25T23:59:59+05:30",
+    vehicleClass: "MEDIUM",
+    capacityKg: 1000,
+  });
+  // Anonymous booking with a business name string only (no customerOrgId).
+  const victimShipment = bookShipment(store, {
+    anchorTripId: trip.id,
+    customerOrgName: "ACME Manufacturing",
+    weightKg: 40,
+    pickupAddress: "A",
+    dropAddress: "B",
+  });
+  assert.equal(victimShipment.customerOrgId, undefined);
+
+  const attacker = registerCustomerOrgAdmin(store, {
+    fullName: "Attacker",
+    phone: "9000000602",
+    orgDisplayName: "ACME Manufacturing",
+  });
+  assert.equal(shipmentVisibleToCustomerUser(store, victimShipment, attacker.user.id), false);
 });
 
 test("submitDriverPod requires IN_PROGRESS trip", () => {
