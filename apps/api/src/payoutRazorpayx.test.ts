@@ -86,7 +86,7 @@ test("RAZORPAYX: one payout per carrier; carrier without fund account is skipped
   assert.equal(calls[0]!.body.fund_account_id, "fa_aaa");
   assert.equal(calls[0]!.body.amount, 50000);
   assert.equal(calls[0]!.body.account_number, "2323230000000000");
-  assert.equal(calls[0]!.body.reference_id, razorpayxPayoutReferenceId(CUTOFF, "org_a"));
+  assert.equal(calls[0]!.body.reference_id, razorpayxPayoutReferenceId(CUTOFF, "org_a", 0));
 
   assert.equal(batch.provider, "RAZORPAYX");
   const byCarrier = new Map(batch.transfers.map((tr) => [tr.carrierId, tr]));
@@ -195,4 +195,34 @@ test("RAZORPAYX: duplicate reference_id after crash-retry marks lines PAID witho
   assert.equal(batch.transfers[0]!.status, "PAID");
   assert.match(batch.transfers[0]!.error ?? "", /duplicate_reference/);
   assert.equal(store.ledgerLines.get("ll_a1")!.status, "PAID");
+});
+
+test("RAZORPAYX: rejected payout retries with a new reference_id (does not false-PAID)", async (t) => {
+  const store = createStore();
+  addOrg(store, "org_a", "fa_aaa");
+  addLine(store, "ll_a1", "org_a", 50000);
+
+  let payoutCalls = 0;
+  const { calls, restore } = mockFetch((url) => {
+    if (url.endsWith("/payouts")) {
+      payoutCalls += 1;
+      if (payoutCalls === 1) {
+        return { status: 200, json: { id: "pout_rej", status: "rejected" } };
+      }
+      return { status: 200, json: { id: "pout_ok", status: "processed" } };
+    }
+    return { status: 200, json: {} };
+  });
+  t.after(restore);
+
+  const b1 = await runPayoutBatch(store, { nowUtcMs: CUTOFF });
+  assert.equal(b1.transfers[0]!.status, "FAILED");
+  assert.equal(store.ledgerLines.get("ll_a1")!.status, "ACCRUED");
+  assert.equal(calls[0]!.body.reference_id, razorpayxPayoutReferenceId(CUTOFF, "org_a", 0));
+
+  const b2 = await runPayoutBatch(store, { nowUtcMs: CUTOFF });
+  assert.equal(b2.transfers[0]!.status, "PAID");
+  assert.equal(store.ledgerLines.get("ll_a1")!.status, "PAID");
+  assert.equal(calls[1]!.body.reference_id, razorpayxPayoutReferenceId(CUTOFF, "org_a", 1));
+  assert.notEqual(calls[0]!.body.reference_id, calls[1]!.body.reference_id);
 });

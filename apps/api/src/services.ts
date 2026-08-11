@@ -1820,9 +1820,37 @@ function isRazorpayxDuplicateReferenceError(err: unknown): boolean {
   );
 }
 
-/** Stable RazorpayX reference so crash-retry of the same cutoff+carrier does not create a second transfer. */
-export function razorpayxPayoutReferenceId(cutoffUtcMs: number, carrierId: string): string {
-  return `n8_${cutoffUtcMs}_${carrierId}`.replace(/[^\w]/g, "").slice(0, 40);
+/**
+ * Stable RazorpayX reference so crash-retry of the same cutoff+carrier does not create a second transfer.
+ * `attempt` advances only after a terminal provider failure (rejected/cancelled/reversed) so a new
+ * payout can be created; network/uncertain failures keep attempt 0 and rely on duplicate-reference → PAID.
+ */
+export function razorpayxPayoutReferenceId(
+  cutoffUtcMs: number,
+  carrierId: string,
+  attempt = 0,
+): string {
+  const base =
+    attempt > 0 ? `n8_${cutoffUtcMs}_${carrierId}_a${attempt}` : `n8_${cutoffUtcMs}_${carrierId}`;
+  return base.replace(/[^\w]/g, "").slice(0, 40);
+}
+
+/** Count prior terminal RazorpayX failures for this cutoff+carrier (drives reference attempt suffix). */
+function razorpayxTerminalFailureAttempts(
+  store: Store,
+  cutoffUtcMs: number,
+  carrierId: string,
+): number {
+  let n = 0;
+  for (const batch of store.payoutBatches.values()) {
+    if (batch.cutoffUtcMs !== cutoffUtcMs) continue;
+    for (const t of batch.transfers) {
+      if (t.carrierId !== carrierId || t.status !== "FAILED") continue;
+      // Provider accepted the request then returned a terminal status (reference consumed).
+      if (t.providerPayoutId || String(t.error ?? "").startsWith("payout_status_")) n += 1;
+    }
+  }
+  return n;
 }
 
 /**
@@ -1835,7 +1863,8 @@ export function razorpayxPayoutReferenceId(cutoffUtcMs: number, carrierId: strin
  *     transfers that error are marked FAILED and their lines stay ACCRUED.
  *
  * Concurrent callers are queued (in-process mutex). RazorpayX `reference_id` is deterministic per
- * cutoff+carrier so a crash-retry after a successful provider transfer does not pay twice.
+ * cutoff+carrier (+ attempt after terminal provider failure) so a crash-retry after a successful
+ * provider transfer does not pay twice, while rejected payouts can still be retried.
  */
 export async function runPayoutBatch(store: Store, params: { nowUtcMs?: number }): Promise<PayoutBatch> {
   const run = () => runPayoutBatchUnlocked(store, params);
@@ -1903,7 +1932,8 @@ async function runPayoutBatchUnlocked(store: Store, params: { nowUtcMs?: number 
       transfers.push({ carrierId, netToCarrierPaise, lineIds, status: "SKIPPED_NO_FUND_ACCOUNT" });
       continue; // leave lines ACCRUED so they retry once payout setup completes
     }
-    const referenceId = razorpayxPayoutReferenceId(earliestCutoff, carrierId);
+    const attempt = razorpayxTerminalFailureAttempts(store, earliestCutoff, carrierId);
+    const referenceId = razorpayxPayoutReferenceId(earliestCutoff, carrierId, attempt);
     try {
       const result = await createRazorpayPayout({
         amountPaise: netToCarrierPaise,
@@ -1926,7 +1956,7 @@ async function runPayoutBatchUnlocked(store: Store, params: { nowUtcMs?: number 
           providerPayoutId: result.id,
           error: `payout_status_${result.status}`,
         });
-        continue; // lines stay ACCRUED to retry
+        continue; // lines stay ACCRUED; next run uses attempt+1 reference
       }
       // PROCESSING or PAID: mark lines PAID (queued/processing payouts are in-flight, not reversible here).
       for (const l of lines) store.ledgerLines.set(l.id, { ...l, status: "PAID", paidAtUtcMs: now });
