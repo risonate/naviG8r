@@ -126,7 +126,7 @@ Legend: **Done** · **Partial** · **Mock** · **Missing**
 | L4 | No shipper dispute window | Trust + collections; ops release alone is not enough | §4.1 Track B |
 | L5 | POD without artifacts | Photo/OTP evidence required for disputes & insurance later | §6A/B |
 | L6 | No lifecycle notifications | Brokers win on WhatsApp; silent portal loses ops | §6A |
-| L7 | Persistence races | Full-snapshot DB writes unsafe past toy volume | ROADMAP A3 |
+| L7 | Persistence races + schema lag | Full-snapshot DB writes unsafe under concurrent book/POD; Prisma schema also omits integration maps/external metadata — **DB mode can drop ERP keys/webhooks on persist** | ROADMAP A3, erp docs |
 | L8 | Live money not productionized | Test Razorpay keys; retry UX; webhook URL; live RazorpayX | ROADMAP B0.1 |
 | L9 | Driver/app pilot hygiene | Env label, crash reporting, distribution for 10–25 devices | ROADMAP B1–B5 |
 | L10 | Ratings absent | CPR-Month definition includes “rated” | PRD North Star |
@@ -315,7 +315,7 @@ Assumptions: **2–3 engineers + founder ops**, Delhi–Mumbai only, partnership
 | Money live | Live Razorpay keys, webhook URL, retry payment UX, RazorpayX or controlled bookkeeping with clear ops SOP |
 | Auth | Real SMS OTP; rate limits; disable debug codes in prod |
 | App | Env banner, crash reporting, versioned APK/Firebase distribution, driver POD photo upload |
-| Data | Indexes + start row-level writes for book/POD/payment |
+| Data | Indexes + start row-level writes for book/POD/payment; extend Prisma schema for integration entities before relying on `PERSISTENCE=DB` in ERP pilots |
 | Ops | Runbook; Day-0 test script; 10 shipper / 15 carrier target list |
 | Metrics | Log CPR inputs (completed / paid / rated once ratings land) |
 
@@ -362,7 +362,7 @@ TMS paid tier, Zoho, performance scores with statistical floors, working-capital
 2. POD photo upload + storage  
 3. Payment retry + live Razorpay/webhook production checklist  
 4. GSTIN field + validation on customer org  
-5. Prisma indexes + transactional book/POD path (start)  
+5. Prisma indexes + transactional book/POD path (start); include integration tables in schema; capacity reservation locking  
 6. Crashlytics + pilot distribution  
 7. Ops runbook + Day-0 script  
 
