@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://navig8r.org/sitemap.xml

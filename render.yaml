@@ -62,3 +62,16 @@ services:
       # Browser-restricted Google Maps JavaScript API key (HTTP referrer = this static site URL).
       - key: MAPS_API_KEY
         sync: false
+
+  # Marketing site (preview on *.onrender.com). Attach navig8r.org only after explicit sign-off.
+  - type: web
+    name: navig8r-www
+    runtime: static
+    region: singapore
+    branch: cursor/marketing-site-cf53
+    buildCommand: bash scripts/render-build-www.sh
+    staticPublishPath: apps/www/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
