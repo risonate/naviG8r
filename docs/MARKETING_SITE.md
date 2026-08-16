@@ -1,41 +1,79 @@
 # Marketing site — navig8r.org
 
-## Status: PREVIEW — awaiting final prod sign-off
+## Status: **APPROVED FOR PROD** (2026-08-16)
 
-Do **not** point `navig8r.org` / `www` DNS at this service until the owner explicitly approves production cutover.
+Owner sign-off received. Ship by merging this work to `main`, deploying Render service `navig8r-www`, then attaching DNS at OpenSRS.
 
 | Item | Value |
 |------|--------|
 | App | `apps/www` (Vite static) |
-| Render service | `navig8r-www` in `render.yaml` |
-| Preview branch | `cursor/marketing-site-cf53` |
+| Render service | `navig8r-www` |
+| Deploy branch | `main` (after merge) |
 | Contact | Form → FormSubmit → `hello@navig8r.org` (mailbox active) |
 | Registrar | OpenSRS |
-| Logo / brand | Typographic wordmark in layout for now; official files kept in `apps/www/public/brand/` for selective manual use |
-| Explore CTA | Links to shipper portal `https://navig8r-customer-web.onrender.com/` |
+| Logo / brand | Typographic wordmark in layout; official files in `apps/www/public/brand/` for selective manual use |
+| Explore CTA | `https://navig8r-customer-web.onrender.com/` |
 | Claims | Soft / professional; do not overstate unshipped features |
-| Production domain | Pending explicit prod approval |
+| Domains | `navig8r.org` + `www.navig8r.org` |
 
 ## Sign-off checklist
 
-- [x] Logo / brand assets OK for v1
+- [x] Logo / brand assets OK for v1 (selective manual later)
 - [x] `hello@navig8r.org` mailbox active
 - [x] Registrar noted (OpenSRS)
 - [x] Soft claims policy confirmed
 - [x] Explore CTA → customer portal confirmed
-- [ ] Visual / copy approved on preview (incl. “Built to Deliver” audience heading)
-- [ ] FormSubmit activation confirmed from `hello@`
-- [ ] Approve attaching custom domain in Render
+- [x] Preview approved for production
+- [ ] PR merged to `main` + Render deploy green
+- [ ] Custom domains added on Render `navig8r-www`
+- [ ] OpenSRS DNS records live + TLS issued
+- [ ] FormSubmit activation confirmed (first real form submit → confirm email from FormSubmit)
 
-## Brand logos
+## Production cutover (Render + OpenSRS)
 
-Official logo files are stored in `apps/www/public/brand/` for **selective manual placement later**.  
-They are **not** applied site-wide in the current preview (full auto-swap felt jarring on hero/header/footer).
+### 1. Merge & deploy
 
-See **`apps/www/public/brand/README.md`** for which asset to use where, safe order of updates (favicon → header → footer → hero), and QA checks.
+1. Merge PR to `main` (blueprint already sets `navig8r-www` → `branch: main`).
+2. In Render, confirm service **`navig8r-www`** builds from `main` and the `*.onrender.com` URL loads the marketing site.
 
-## After sign-off
+### 2. Attach custom domains (Render Dashboard)
 
-1. In Render → `navig8r-www` → Custom Domains → add `navig8r.org` and `www.navig8r.org`
-2. At OpenSRS, add the CNAME/A records Render shows
-3. Optionally switch blueprint `branch` from preview branch to `main` after merge
+On **navig8r-www** → **Settings** → **Custom Domains**:
+
+1. Add **`www.navig8r.org`**
+2. Add **`navig8r.org`** (apex)
+3. Copy the DNS targets Render displays (exact values can vary by account). Typical pattern:
+
+| Host (OpenSRS) | Type | Target (example — use Render’s values) |
+|----------------|------|----------------------------------------|
+| `www` | CNAME | `navig8r-www.onrender.com` *(or the hostname Render shows)* |
+| `@` (apex) | ALIAS / ANAME / or A records | Exactly as Render lists for apex |
+
+If OpenSRS has no ALIAS/ANAME for apex, use the **A** records Render provides for the root domain, or CNAME-flattening if your DNS plan supports it.
+
+### 3. OpenSRS DNS
+
+1. Log in to OpenSRS → domain **navig8r.org** → DNS management.
+2. Add/update the records from step 2.
+3. Remove conflicting old A/CNAME records for `@` / `www` if any.
+4. Wait for propagation (often minutes; up to 24–48h worst case).
+5. Back in Render, wait until both domains show **Verified** / certificate **Issued**.
+
+### 4. Post-cutover checks
+
+- [ ] `https://www.navig8r.org` loads
+- [ ] `https://navig8r.org` loads (and redirects or serves same site as preferred)
+- [ ] Contact form: submit once; complete FormSubmit confirmation email to `hello@` if prompted
+- [ ] Mobile + desktop smoke on Products / Contact
+- [ ] Optional: set preferred canonical to `https://navig8r.org` or `www` consistently
+
+## Brand logos (manual / selective)
+
+Official logo files are in **`apps/www/public/brand/`** but **not wired site-wide**.  
+Update one surface at a time later: see [`apps/www/public/brand/README.md`](../apps/www/public/brand/README.md).
+
+## Local preview
+
+```bash
+cd apps/www && npm install && npm run dev
+```

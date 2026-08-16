@@ -63,12 +63,12 @@ services:
       - key: MAPS_API_KEY
         sync: false
 
-  # Marketing site (preview on *.onrender.com). Attach navig8r.org only after explicit sign-off.
+  # Marketing site — production. Custom domains: navig8r.org + www.navig8r.org (see docs/MARKETING_SITE.md).
   - type: web
     name: navig8r-www
     runtime: static
     region: singapore
-    branch: cursor/marketing-site-cf53
+    branch: main
     buildCommand: bash scripts/render-build-www.sh
     staticPublishPath: apps/www/dist
     routes:
