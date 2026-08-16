@@ -31,10 +31,26 @@ Owner sign-off received. Ship by merging this work to `main`, deploying Render s
 
 ## Production cutover (Render + OpenSRS)
 
-### 1. Merge & deploy
+### Note: Blueprint vs dashboard
 
-1. Merge PR to `main` (blueprint already sets `navig8r-www` → `branch: main`).
-2. In Render, confirm service **`navig8r-www`** builds from `main` and the `*.onrender.com` URL loads the marketing site.
+If Render → **Blueprints** says you have no Blueprint instances, that only means you never applied `render.yaml` as IaC. Your existing `navig8r-api` / `navig8r-customer-web` services can still be **dashboard-created** in the same workspace. You do **not** need a Blueprint to ship `navig8r-www`.
+
+**Recommended for v1:** create a **Static Site** manually (same path as customer-web).  
+Optional later: **New → Blueprint** → connect this repo to adopt `render.yaml` for future syncs (match existing service names carefully to avoid duplicates).
+
+### 1. Create `navig8r-www` (manual Static Site)
+
+In the **same Render workspace** as your API / customer web:
+
+1. **New → Static Site**
+2. Connect repo `uwais/naviG8r`, branch **`main`** (merge PR #88 first if not merged)
+3. Settings:
+   - **Name:** `navig8r-www`
+   - **Build command:** `bash scripts/render-build-www.sh`
+   - **Publish directory:** `apps/www/dist`
+4. Deploy and confirm the `*.onrender.com` URL loads the marketing site.
+
+SPA fallback (if a deep link 404s): Static Site → **Redirects/Rewrites** → rewrite `/*` → `/index.html` (source: rewrite).
 
 ### 2. Attach custom domains (Render Dashboard)
 
