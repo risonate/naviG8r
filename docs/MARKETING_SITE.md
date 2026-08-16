@@ -11,7 +11,7 @@ Do **not** point `navig8r.org` / `www` DNS at this service until the owner expli
 | Preview branch | `cursor/marketing-site-cf53` |
 | Contact | Form → FormSubmit → `hello@navig8r.org` (mailbox active) |
 | Registrar | OpenSRS |
-| Logo / brand | Wordmark + mark OK for v1 |
+| Logo / brand | Typographic wordmark in layout for now; official files kept in `apps/www/public/brand/` for selective manual use |
 | Explore CTA | Links to shipper portal `https://navig8r-customer-web.onrender.com/` |
 | Claims | Soft / professional; do not overstate unshipped features |
 | Production domain | Pending explicit prod approval |
@@ -26,6 +26,13 @@ Do **not** point `navig8r.org` / `www` DNS at this service until the owner expli
 - [ ] Visual / copy approved on preview (incl. “Built to Deliver” audience heading)
 - [ ] FormSubmit activation confirmed from `hello@`
 - [ ] Approve attaching custom domain in Render
+
+## Brand logos
+
+Official logo files are stored in `apps/www/public/brand/` for **selective manual placement later**.  
+They are **not** applied site-wide in the current preview (full auto-swap felt jarring on hero/header/footer).
+
+See **`apps/www/public/brand/README.md`** for which asset to use where, safe order of updates (favicon → header → footer → hero), and QA checks.
 
 ## After sign-off
 
