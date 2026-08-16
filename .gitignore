@@ -21,3 +21,6 @@ apps/driver_pilot/**/local.properties
 apps/driver_pilot/android/key.properties
 apps/driver_pilot/**/*.jks
 apps/driver_pilot/**/*.keystore
+
+# Marketing site build
+apps/www/dist/

@@ -1,0 +1,17 @@
+<svg width="1400" height="400" viewBox="0 0 1400 400" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="1400" height="400" fill="#0D1524"/>
+
+  <!-- icon mark, unboxed -->
+  <g transform="translate(30, 60)">
+    <path d="M 50 230 C 100 213, 126 165, 142 126" fill="none" stroke="#E8A33D"
+          stroke-width="4" stroke-dasharray="1 10" stroke-linecap="round" opacity="0.55"/>
+    <circle cx="50" cy="230" r="7" fill="#E8A33D" opacity="0.55"/>
+    <g transform="translate(48,40) scale(7.7)" fill="#E8A33D" fill-rule="evenodd">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zM12 11.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+    </g>
+  </g>
+
+  <!-- wordmark -->
+  <text x="330" y="248" font-family="Poppins" font-weight="700" font-size="132" fill="#F2EFE9">Navi<tspan fill="#E8A33D">G</tspan><tspan fill="#E8A33D">8</tspan>r</text>
+  <text x="334" y="300" font-family="TeX Gyre Heros Cn" font-size="26" letter-spacing="6" fill="#8C93A6">FREIGHT &amp; LOGISTICS MARKETPLACE</text>
+</svg>

@@ -62,3 +62,16 @@ services:
       # Browser-restricted Google Maps JavaScript API key (HTTP referrer = this static site URL).
       - key: MAPS_API_KEY
         sync: false
+
+  # Marketing site — production. Custom domains: navig8r.org + www.navig8r.org (see docs/MARKETING_SITE.md).
+  - type: web
+    name: navig8r-www
+    runtime: static
+    region: singapore
+    branch: main
+    buildCommand: bash scripts/render-build-www.sh
+    staticPublishPath: apps/www/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
