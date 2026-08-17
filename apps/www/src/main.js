@@ -1,5 +1,5 @@
 const CONTACT_ENDPOINT = "https://formsubmit.co/ajax/hello@navig8r.org";
-const PORTAL_URL = "https://navig8r-customer-web.onrender.com/";
+const PORTAL_URL = "https://navig8r-customer.onrender.com/";
 const TURNSTILE_SITE_KEY = String(import.meta.env.VITE_TURNSTILE_SITE_KEY || "").trim();
 const MIN_INTERACTION_MS = 1600;
 
