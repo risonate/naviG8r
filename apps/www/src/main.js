@@ -197,7 +197,7 @@ function mountFallbackChallenge(container, idPrefix) {
   container.innerHTML = `
     <label class="human-check">
       <input type="checkbox" data-human-check />
-      <span>I’m a human prospect (not an automated script)</span>
+      <span>I’m human (not an automated script)</span>
     </label>
     <div class="human-challenge-row">
       <label for="${idPrefix}-math">What is ${challenge.a} + ${challenge.b}?</label>
@@ -224,7 +224,7 @@ function readFallbackChallenge(container) {
   }
   const checked = qs("[data-human-check]", container)?.checked;
   if (!checked) {
-    return { ok: false, reason: "Confirm you’re a human prospect." };
+    return { ok: false, reason: "Confirm you’re human." };
   }
   const answer = String(qs("[data-human-math]", container)?.value || "").trim();
   if (answer !== container.dataset.expected) {
