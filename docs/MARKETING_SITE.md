@@ -10,7 +10,7 @@ Owner sign-off received. Ship by merging this work to `main`, deploying Render s
 | Render service | `navig8r-www` |
 | Deploy branch | `main` (after merge) |
 | Contact | Form → human check → FormSubmit → `hello@navig8r.org` |
-| Explore CTA | Human check gate → `https://navig8r-customer-web.onrender.com/` |
+| Explore CTA | Human check gate → `https://navig8r-customer.onrender.com/` |
 | Registrar | OpenSRS |
 | Logo / brand | Typographic wordmark in layout; official files in `apps/www/public/brand/` for selective manual use |
 | Claims | Soft / professional; do not overstate unshipped features |
