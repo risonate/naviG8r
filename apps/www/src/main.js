@@ -1,5 +1,7 @@
-const CONTACT_ENDPOINT = "https://formsubmit.co/ajax/hello@navig8r.org";
 const PORTAL_URL = "https://navig8r-customer.onrender.com/";
+const ZOHO_FORM_PERMA_DEFAULT =
+  "https://forms.zohopublic.in/hellonav1/form/ContactUs/formperma/NuqC1H2URRw64nUIiYsDt_ncag6aVmX7X4dTMX6QcZY";
+const ZOHO_FORM_PERMA = String(import.meta.env.VITE_ZOHO_FORM_PERMA || ZOHO_FORM_PERMA_DEFAULT).trim();
 const TURNSTILE_SITE_KEY = String(import.meta.env.VITE_TURNSTILE_SITE_KEY || "").trim();
 const MIN_INTERACTION_MS = 1600;
 
@@ -244,48 +246,45 @@ function createTurnstileWidget(api, el, { onToken }) {
   });
 }
 
-async function initContactHuman() {
-  const mount = qs("[data-contact-human]");
-  if (!mount) return { getProof: async () => ({ ok: false, reason: "Human check unavailable." }) };
-
-  const turnstileEl = qs("[data-turnstile-contact]", mount);
-  const fallbackEl = qs("[data-fallback-challenge]", mount);
-  let token = "";
-  let widgetId = null;
-
-  if (TURNSTILE_SITE_KEY && turnstileEl) {
-    try {
-      const api = await loadTurnstile();
-      if (api) {
-        widgetId = createTurnstileWidget(api, turnstileEl, {
-          onToken: (value) => {
-            token = value;
-          },
-        });
-        if (fallbackEl) fallbackEl.hidden = true;
-        return {
-          getProof: async () => {
-            if (!token) {
-              return { ok: false, reason: "Complete the human verification checkbox." };
-            }
-            return { ok: true, method: "turnstile", token };
-          },
-          reset: () => {
-            token = "";
-            if (widgetId != null && window.turnstile) window.turnstile.reset(widgetId);
-          },
-        };
-      }
-    } catch (err) {
-      console.warn(err);
-    }
+function isZohoFormUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const zohoHost =
+      host.endsWith("zohopublic.com") ||
+      host.endsWith("zohopublic.in") ||
+      host.endsWith("zohopublic.eu") ||
+      host.endsWith("zohopublic.com.au") ||
+      host.endsWith("zohopublic.com.cn");
+    return zohoHost && parsed.pathname.includes("/formperma/");
+  } catch {
+    return false;
   }
+}
 
-  mountFallbackChallenge(fallbackEl, "contact");
-  return {
-    getProof: async () => readFallbackChallenge(fallbackEl),
-    reset: () => mountFallbackChallenge(fallbackEl, "contact"),
-  };
+function initZohoForm() {
+  const mount = qs("[data-zoho-form]");
+  if (!mount || !isZohoFormUrl(ZOHO_FORM_PERMA)) return;
+
+  const iframe = document.createElement("iframe");
+  iframe.src = ZOHO_FORM_PERMA;
+  iframe.title = "Contact NaviG8r";
+  iframe.loading = "lazy";
+  iframe.setAttribute("aria-label", "Contact form");
+  mount.prepend(iframe);
+  const fallback = qs("[data-zoho-fallback]", mount);
+  if (fallback) fallback.hidden = true;
+
+  window.addEventListener("message", (event) => {
+    if (!String(event.origin || "").toLowerCase().includes("zohopublic")) return;
+    if (typeof event.data !== "string" || !event.data.includes("|")) return;
+    const [perma, height] = event.data.split("|");
+    const px = parseInt(height, 10);
+    if (!Number.isFinite(px) || px < 240) return;
+    if (perma && iframe.src.includes(perma)) {
+      iframe.style.height = `${px + 16}px`;
+    }
+  });
 }
 
 function initHumanGate() {
@@ -402,89 +401,6 @@ function initHumanGate() {
   };
 }
 
-function initContactForm(contactHuman) {
-  const form = qs("[data-contact-form]");
-  if (!form) return;
-  const status = qs("[data-form-status]", form);
-  const submitBtn = qs("[data-submit]", form);
-  let openedAt = Date.now();
-
-  form.addEventListener(
-    "focusin",
-    () => {
-      if (!form.dataset.touched) {
-        form.dataset.touched = "1";
-        openedAt = Date.now();
-      }
-    },
-    { once: true },
-  );
-
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    status.textContent = "";
-    status.classList.remove("is-error");
-
-    if (!form.reportValidity()) {
-      status.textContent = "Please complete the required fields.";
-      status.classList.add("is-error");
-      return;
-    }
-
-    const honey = form.querySelector('input[name="_gotcha"]');
-    if (honey && honey.value.trim()) {
-      status.textContent = "Couldn’t verify this submission.";
-      status.classList.add("is-error");
-      return;
-    }
-
-    if (Date.now() - openedAt < MIN_INTERACTION_MS) {
-      status.textContent = "Take a moment to review your message, then send again.";
-      status.classList.add("is-error");
-      return;
-    }
-
-    const proof = await contactHuman.getProof();
-    if (!proof.ok) {
-      status.textContent = proof.reason || "Complete the human check first.";
-      status.classList.add("is-error");
-      return;
-    }
-
-    const data = new FormData(form);
-    data.append("_template", "table");
-    data.append("_captcha", "false");
-    data.append("human_verification", proof.method);
-    if (proof.token) data.append("cf-turnstile-response", proof.token);
-
-    submitBtn.disabled = true;
-    const prev = submitBtn.textContent;
-    submitBtn.textContent = "Sending…";
-
-    try {
-      const res = await fetch(CONTACT_ENDPOINT, {
-        method: "POST",
-        body: data,
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      form.reset();
-      openedAt = Date.now();
-      delete form.dataset.touched;
-      contactHuman.reset?.();
-      status.textContent = "Message sent. We’ll reply at hello@navig8r.org soon.";
-    } catch (err) {
-      console.error(err);
-      status.textContent =
-        "Couldn’t send just now. Email us directly at hello@navig8r.org.";
-      status.classList.add("is-error");
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = prev;
-    }
-  });
-}
-
 function initPortalGate(humanGate) {
   qsa("[data-portal-gate]").forEach((link) => {
     link.addEventListener("click", async (event) => {
@@ -509,10 +425,9 @@ async function boot() {
   initAudience();
   initReveal();
   initYear();
+  initZohoForm();
 
-  const contactHuman = await initContactHuman();
   const humanGate = initHumanGate();
-  initContactForm(contactHuman);
   initPortalGate(humanGate);
 }
 

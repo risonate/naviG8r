@@ -21,9 +21,9 @@ npm run build
 
 ## Contact form
 
-The contact form posts to [FormSubmit](https://formsubmit.co) → `hello@navig8r.org`.
+The contact form is a [Zoho Forms](https://www.zoho.com/forms/) Free embed. Submissions notify `hello@navig8r.org` (same Zoho Mail inbox).
 
-**First-time setup:** submit once from the live/preview URL, then confirm the activation email FormSubmit sends to `hello@navig8r.org`. Until that inbox exists and is confirmed, the form will fail gracefully and show the mailto fallback message.
+**Setup:** CAPTCHA and email notification are configured in Zoho Forms. The iframe URL is baked into the site; override with `VITE_ZOHO_FORM_PERMA` if you recreate the form (see [`docs/MARKETING_SITE.md`](../../docs/MARKETING_SITE.md)).
 
 ## Preview vs production
 
