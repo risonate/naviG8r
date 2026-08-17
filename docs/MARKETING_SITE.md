@@ -9,12 +9,33 @@ Owner sign-off received. Ship by merging this work to `main`, deploying Render s
 | App | `apps/www` (Vite static) |
 | Render service | `navig8r-www` |
 | Deploy branch | `main` (after merge) |
-| Contact | Form → FormSubmit → `hello@navig8r.org` (mailbox active) |
+| Contact | Form → human check → FormSubmit → `hello@navig8r.org` |
+| Explore CTA | Human check gate → `https://navig8r-customer-web.onrender.com/` |
 | Registrar | OpenSRS |
 | Logo / brand | Typographic wordmark in layout; official files in `apps/www/public/brand/` for selective manual use |
-| Explore CTA | `https://navig8r-customer-web.onrender.com/` |
 | Claims | Soft / professional; do not overstate unshipped features |
 | Domains | `navig8r.org` + `www.navig8r.org` |
+| Bot guard | Cloudflare Turnstile when `VITE_TURNSTILE_SITE_KEY` is set; otherwise math + checkbox fallback |
+
+## Bot / human verification
+
+Public CTAs (contact form + Explore portal) require a human check before submit/redirect.
+
+1. Create a free [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) site widget.
+2. Allow hostnames: `navig8r-www.onrender.com`, `navig8r.org`, `www.navig8r.org`, and `localhost` for local testing.
+3. On Render → **navig8r-www** → **Environment**, add build-time env:
+   - `VITE_TURNSTILE_SITE_KEY` = your Turnstile **site** key
+4. Redeploy so Vite bakes the key into the static build.
+
+Without the key, the site still blocks naive bots with a checkbox + simple math challenge, honeypot, and minimum interaction time. Turnstile is the production-grade option.
+
+Local with Turnstile:
+
+```bash
+cd apps/www
+VITE_TURNSTILE_SITE_KEY=your_site_key npm run dev
+```
+
 
 ## Sign-off checklist
 

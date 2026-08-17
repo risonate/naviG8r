@@ -76,7 +76,13 @@
           </p>
           <div class="hero-actions">
             <a class="btn btn-primary" href="#contact">Talk to our team</a>
-            <a class="btn btn-ghost" href="https://navig8r-customer-web.onrender.com/" target="_blank" rel="noopener noreferrer">Explore portal</a>
+            <a
+              class="btn btn-ghost"
+              href="https://navig8r-customer-web.onrender.com/"
+              data-portal-gate
+              rel="noopener noreferrer"
+              >Explore portal</a
+            >
           </div>
         </div>
       </section>
@@ -416,6 +422,11 @@
               <span>How can we help?</span>
               <textarea name="message" required rows="5" placeholder="Corridors, volumes, timeline, or questions…"></textarea>
             </label>
+            <div class="human-inline full" data-contact-human>
+              <p class="human-inline-label">Human check — required before send</p>
+              <div class="turnstile-slot" data-turnstile-contact></div>
+              <div class="human-challenge" data-fallback-challenge hidden></div>
+            </div>
             <div class="form-footer full">
               <button class="btn btn-primary" type="submit" data-submit>Send message</button>
               <p class="form-status" data-form-status role="status" aria-live="polite"></p>
@@ -439,6 +450,28 @@
         <p class="footer-copy">© <span data-year></span> NaviG8r. All rights reserved.</p>
       </div>
     </footer>
+
+    <div class="human-gate-backdrop" data-human-gate hidden>
+      <div
+        class="human-gate-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="human-gate-title"
+        tabindex="-1"
+      >
+        <h2 id="human-gate-title">Confirm you’re human</h2>
+        <p data-human-gate-copy>
+          Quick check before we open the shipper portal—keeps automated traffic out.
+        </p>
+        <div class="turnstile-slot" data-turnstile-gate></div>
+        <div class="human-challenge" data-gate-fallback hidden></div>
+        <p class="human-gate-error" data-human-gate-error hidden></p>
+        <div class="human-gate-actions">
+          <button type="button" class="btn btn-ghost" data-human-gate-cancel>Cancel</button>
+          <button type="button" class="btn btn-primary" data-human-gate-confirm>Continue</button>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="/src/main.js"></script>
   </body>
