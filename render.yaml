@@ -71,6 +71,10 @@ services:
     branch: main
     buildCommand: bash scripts/render-build-www.sh
     staticPublishPath: apps/www/dist
+    # Optional bot protection (bake at build time):
+    # envVars:
+    #   - key: VITE_TURNSTILE_SITE_KEY
+    #     sync: false
     routes:
       - type: rewrite
         source: /*
