@@ -23,7 +23,7 @@ npm run build
 
 The contact form is a [Zoho Forms](https://www.zoho.com/forms/) Free embed. Submissions notify `hello@navig8r.org` (same Zoho Mail inbox).
 
-**Setup:** create the form in the same Zoho org as Mail, enable Zoho Forms CAPTCHA, set the email notification to `hello@navig8r.org`, then put the iframe `src` in `VITE_ZOHO_FORM_PERMA` (see [`docs/MARKETING_SITE.md`](../../docs/MARKETING_SITE.md)). Until that env is set, the page shows a mailto fallback.
+**Setup:** CAPTCHA and email notification are configured in Zoho Forms. The iframe URL is baked into the site; override with `VITE_ZOHO_FORM_PERMA` if you recreate the form (see [`docs/MARKETING_SITE.md`](../../docs/MARKETING_SITE.md)).
 
 ## Preview vs production
 

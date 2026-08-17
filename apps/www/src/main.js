@@ -1,5 +1,7 @@
 const PORTAL_URL = "https://navig8r-customer.onrender.com/";
-const ZOHO_FORM_PERMA = String(import.meta.env.VITE_ZOHO_FORM_PERMA || "").trim();
+const ZOHO_FORM_PERMA_DEFAULT =
+  "https://forms.zohopublic.in/hellonav1/form/ContactUs/formperma/NuqC1H2URRw64nUIiYsDt_ncag6aVmX7X4dTMX6QcZY";
+const ZOHO_FORM_PERMA = String(import.meta.env.VITE_ZOHO_FORM_PERMA || ZOHO_FORM_PERMA_DEFAULT).trim();
 const TURNSTILE_SITE_KEY = String(import.meta.env.VITE_TURNSTILE_SITE_KEY || "").trim();
 const MIN_INTERACTION_MS = 1600;
 
