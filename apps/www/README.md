@@ -21,7 +21,7 @@ npm run build
 
 ## Contact form
 
-The contact form posts to [FormSubmit](https://formsubmit.co) → `hello@navig8r.org`.
+The contact form posts to [FormSubmit](https://formsubmit.co) using their random string (not a naked email in the action URL). Mail still lands at `hello@navig8r.org`.
 
 **First-time setup:** submit once from the live/preview URL, then confirm the activation email FormSubmit sends to `hello@navig8r.org`. Until that inbox exists and is confirmed, the form will fail gracefully and show the mailto fallback message.
 
